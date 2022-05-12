@@ -77,8 +77,12 @@ class MeshHandler:
 
     def projet_displacemnets(self, deltas: T) -> T:
         _, local_axes = self.extract_local_axes()
+        # deltas [face size, xyz]
         deltas = deltas.squeeze(0).t().reshape(-1, 3)
+        # linear projection according to local axis, this is displacement vector
+        # global_vecs [face * 3 vertex(each face vertex), 3 xyz]??
         global_vecs = torch.einsum('fsad,fa->fsd', [local_axes, deltas]).view(-1, 3)
+        # vs_deltas [vertex, face, 3xyz]
         vs_deltas = global_vecs[self.ds.vertex2faces] * self.ds.vertex2faces_ma[:, :, None]
         vs_deltas = vs_deltas.sum(1) / self.ds.vs_degree[:, None]
         return vs_deltas
@@ -91,11 +95,15 @@ class MeshHandler:
     def get_local_axes(mesh: T_Mesh) -> Tuple[T, T]:
         vs, faces = mesh
         _, normals = mesh_utils.compute_face_areas(mesh)
+        # vs_faces [face size, 3 vertex, 3 xyz]
         vs_faces = vs[faces]
         origins = [((vs_faces[:, i] + vs_faces[:, (i + 1) % 3]) / 2).unsqueeze(1) for i in range(3)]
+        # x 3 vertex * [1, face size, 3xyz]
         x = [(vs_faces[:, (i + 1) % 3] - vs_faces[:, i]) for i in range(3)]
         y = [torch.cross(x[i], normals) for i in range(3)]  # 3 f 3
+        # axes 3 vertex * [1, 3 xyznormal, face size, 3 xyz]
         axes = [torch.cat(list(map(lambda v: v.unsqueeze(1), [x[i], y[i], normals])), 1) for i in range(3)]
+        # axes [face size, 3 vertex, 3 xyznormal, 3 xyz]
         axes = torch.cat(axes, dim=1).view(-1, 3, 3, 3)
         origins = torch.cat(origins, dim=1).view(-1, 3, 3)
         axes = axes / torch.norm(axes, p=2, dim=3)[:, :, :, None]
@@ -124,6 +132,7 @@ class MeshHandler:
                     origins, local_axes = self.get_local_axes((vs_, self.faces))
             else:
                 origins, local_axes = self.extract_local_axes()
+
             global_cords = vs_[self.ds.face2points] - origins
             local_cords = torch.einsum('fsd,fsad->fsa', [global_cords, local_axes])
             return local_cords, vs_

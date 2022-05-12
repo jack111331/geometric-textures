@@ -7,15 +7,28 @@ import constants as const
 
 
 class Upsampler:
-
+    # Uniform subdivision
     def __init__(self, template: T_Mesh):
         vs_t, faces_t = template
+        # vs is geometrical information, faces is topology information
+        # prepare the 3 middle vertice index for upsample face
+        '''
+            / \\
+           /   \\
+          b     b
+         /       \\
+        /----b----\\
+        '''
         base_inds = 3 * torch.arange(faces_t.shape[0], device=vs_t.device).unsqueeze(1) + vs_t.shape[0]
+
+        # Edge vertices for each face which still have overlapped upsampled vertices 
         raw_edges = torch.cat([faces_t[:, [i, (i + 1) % 3]] for i in range(3)], dim=1).view(-1, 2).sort()[0].cpu()
         mask = torch.ones(raw_edges.shape[0], dtype=torch.bool)
         mapper = torch.zeros(raw_edges.shape[0], dtype=torch.int64)
         edges = dict()
         counter = 0
+        # mapping face overlapped edge, mapper actually map upsampled overlapped vertex index to its middle(upsampled) non-overlapped vertex index(using the fact that one edge corresponded one upsampled vertex)
+        # mask record the same edge's first occurence
         for i, edge in enumerate(raw_edges):
             e_ = (edge[0].item(), edge[1].item())
             if e_ in edges:
@@ -25,9 +38,31 @@ class Upsampler:
                 mapper[i] = counter
                 edges[e_] = counter
                 counter += 1
+        # prepare vertex index constructed middle face for upsample face
+        # Note that it uses original face vertex index, not mapped to real face index
+        '''
+            / \\
+           /   \\
+          .-----.
+         / \\m/  \\
+        /----.----\\
+        '''
         faces_mid = [(torch.arange(3 * faces_t.shape[0], device=vs_t.device) + vs_t.shape[0]).view(-1, 3)]
+
+        # prepare vertex index constructed the other 3 face for upsample face
+        # Note that it uses original face vertex index, not mapped to real face index
+        '''
+            / \\
+           / 1 \\
+          .-----.
+         /2\\ / 3\\
+        /----.----\\
+        '''
         faces_sr = [torch.cat([faces_t[:, i].unsqueeze(1), base_inds + i, base_inds + (i + 2) % 3], dim=1) for i in
                     range(3)]
+
+        # For preventing same edge being upsampled twice with its middle vertex being different, it uses the mapping to deal with it
+        # The non-upsampled(front) part is mapped to itself, the upsampled(back) part is mapped to non-overlapped one
         mapper = torch.cat((torch.arange(vs_t.shape[0]), mapper + vs_t.shape[0])).to(device=vs_t.device)
         self.down_faces = faces_t
         self.up_faces = mapper[torch.cat(faces_sr + faces_mid, dim=0)]
@@ -86,6 +121,7 @@ class MeshDS: # : mesh data structures
         return self.__vertex2faces_flipped.to(self.gfmm.device)
 
     def update_vs_degree(self, face, face_id, zero_one_two):
+        # Here vertex2faces indicate each vertices's degree associate neighbor face index
         self.vertex2faces[face, self.vs_degree[face]] = face_id * 3 + zero_one_two
         self.vs_degree[face] += 1
 
@@ -105,8 +141,18 @@ class MeshDS: # : mesh data structures
             edge2key_cache[face_id * 3 + idx] = edge_key
 
         def insert_face():
+            '''
+            Assign current face_id's three neighbor face_id into gfmm
+            |\\
+            |  \\
+            | /
+            |/
+            '''
+            # extract edge's 2 neighbor face_id
             nb_faces = edge2faces[edge2key_cache[face_id * 3 + idx]]
+            # extract edge's face idx which id isn't face_id
             nb_face = nb_faces[0] if nb_faces[0] != face_id else nb_faces[1]
+            # construct the topology, first dimension indicate the three neighbor faces for logical face_id
             self.gfmm[nb_count[face_id], face_id] = nb_face
             nb_count[face_id] += 1
 
@@ -128,12 +174,21 @@ class MeshDS: # : mesh data structures
         self.vs_degree = self.vs_degree.float()
 
     def get_face2points(self, faces) -> T:
+        # len(self) is the amount of face
+        # cords_indices [faces, edge] indicate the face's ith edge corresponding face index
         cords_indices = torch.zeros(len(self), 3, dtype=torch.int64)
+        # dim(all_inds) is [physical faces index, 3 neighbor faces, vertex index]
         all_inds = faces[self.gfmm.t()]
         for i in range(3):
+            # [..., None] means unsqueeze at that dimension
+            # ma_a, ma_b find the overlapped vertex index between current face index and its 3 neighbor faces
+            
+            # Find the face which is adjacent to ith edge
             ma_a = all_inds - faces[:, i][:, None, None]
             ma_b = all_inds - faces[:, (i + 1) % 3][:, None, None]
             ma = (ma_a * ma_b) == 0
+            # ma_final indicate the face adjacent to the ith edge
+            # * (~ma) is just broadcast the face which meet the condition to the original ma dimension
             ma_final = (ma.sum(2) == 2)[:, :, None] * (~ma)
             cords_indices[:, i] = all_inds[ma_final]
         return cords_indices
@@ -160,19 +215,26 @@ class VerticesDS(MeshDS):
         self.edges_ind = get_edges_ind(mesh)
 
     def update_vs_degree(self, face: T, face_id: int, _):
+        # here vertex2faces indicate the vertex's each degree's corresponding face_id
         self.vertex2faces[face, self.vs_degree[face]] = face_id
         self.vs_degree[face] += 1
 
     def compute_vertex2vertex(self, mesh: T_Mesh) -> T:
         vs, faces = mesh
+        # raw is the every vertex's neighbor face's vertex index, [vertex, vertex degree, 3 vertex index in face]
         raw = faces[self.vertex2faces]
         base_inds = torch.arange(vs.shape[0])
+        # ma is every vertex's neighbor face's vertex index exclude vertex itself
         ma = base_inds[:, None, None] != raw
+        # wh is every vertex's neighbor face's vertex's next vertex index
+        # The wh is for masking out each vertices' neighbor faces' this vertices immediate next vertex, leave only one unique vertices for one face
         wh = torch.where(~ma)
         wh = wh[0], wh[1], (wh[2] + 1) % 3
         ma[wh] = False
+        # set mask's invalid vertex as false to prevent update them
         ma[~self.vertex2faces_ma.bool()] = torch.tensor((True, False, False))
         v2v = raw[ma].view(vs.shape[0], self.vertex2faces.shape[1])
+        # vertices maps to its all neighbor vertices
         return v2v
 
     def compute_faces_ring(self, mesh) -> T:
