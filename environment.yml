@@ -1,4 +1,4 @@
-name: dgts
+name: 3dcv-project
 channels:
   - pytorch
   - defaults
@@ -11,5 +11,8 @@ dependencies:
   - faiss-gpu=1.6.0
   - pillow=7.0.0
   - pip
+  - imageio
+  - torchvision
+  - scikit-image
   - pip:
     - tqdm==4.40.2
