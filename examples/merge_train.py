@@ -36,9 +36,9 @@ IMAGE_SIZE = 64
 SIGMA_VAL = 1e-4
 START_ITERATION = 0
 
-RESUME_PATH = ''
+RESUME_PATH = 'data/results/models/recon/checkpoint_0250000.pth.tar'
 
-# arguments
+# SoftRas arguments
 parser = argparse.ArgumentParser()
 parser.add_argument('-eid', '--experiment-id', type=str, default="recon")
 parser.add_argument('-md', '--model-directory', type=str, default=MODEL_DIRECTORY)
@@ -60,6 +60,21 @@ parser.add_argument('-pf', '--print-freq', type=int, default=PRINT_FREQ)
 parser.add_argument('-df', '--demo-freq', type=int, default=DEMO_FREQ)
 parser.add_argument('-sf', '--save-freq', type=int, default=SAVE_FREQ)
 parser.add_argument('-s', '--seed', type=int, default=RANDOM_SEED)
+
+# dgts arguments
+parser.add_argument('--tag', type=str, help='')
+parser.add_argument('--mesh-name', type=str, help='')
+parser.add_argument('--template-name', type=str, default='sphere', help='')
+parser.add_argument('--num-levels', type=int, help='')
+parser.add_argument('--start-level', type=int, default=0, help='')
+# inference options
+parser.add_argument('--gen-mode', type=str, choices=['generate', 'animate'])
+parser.add_argument('--num-gen-samples', type=int, default=8)
+parser.add_argument('--target', type=str, default='fertility_al', help='')
+parser.add_argument('--gen-levels', nargs='+', type=int, default=[1, 4], help='')
+# gt optimization options
+parser.add_argument('--template-start', type=int, default=0, help='')
+
 args = parser.parse_args()
 
 torch.backends.cudnn.deterministic = True
@@ -85,8 +100,8 @@ if args.resume_path:
     optimizer.load_state_dict(state_dicts['optimizer'])
     start_iter = int(os.path.split(args.resume_path)[1][11:].split('.')[0]) + 1
     print('Resuming from %s iteration' % start_iter)
-
-dataset_train = datasets.ShapeNet(args.dataset_directory, args.class_ids.split(','), 'train')
+else:
+    dataset_train = datasets.ShapeNet(args.dataset_directory, args.class_ids.split(','), 'train')
 
 
 def train():
@@ -156,6 +171,7 @@ def train():
                                          batch_time=batch_time, loss=losses,
                                          lr=lr, sv=model.rasterizer.sigma_val))
 
+    return model
 
 def adjust_learning_rate(optimizers, learning_rate, i, method):
     if method == 'step':
@@ -181,6 +197,35 @@ def adjust_sigma(sigma, i):
 
 if __name__ == '__main__':
     # SoftRas train
-    train()
+    # For debug faster, reuse saved model by args.resumePath
+    softRasModel = train()
+    # each test image npz is "arr_0": [images[24 angles, 4 channels, 64 height, 64 width]] * n_kind_of_category
+    dataset_val = datasets.ShapeNet(args.dataset_directory, args.class_ids.split(','), 'val')
+    idx_img = 0
+    # 02691156: Airplane, see datasets.py
+    class_id = '02691156'
+    imgs, vox = next(iter(dataset_val.get_all_batches_for_evaluation(args.batch_size, class_id)))
+    imgs = torch.autograd.Variable(imgs).cuda()
+    vertices, faces = softRasModel(images=imgs, task='test')
+    # Only use one image's output as one batch
+    template = (vertices[0], faces[0].long())
 
     # Geometric texture synthesis
+    # Inference
+    from dgts_base import *
+    opt_ = options.Options()
+    opt_.parse_cmdline(parser)
+    opt_.gen_mode = 'animate'
+    # Wire object output(vertices, faces) to MeshGen and Mesh2Mesh, MeshInference
+    # MeshGen done
+    # MeshInference done
+    device = CPU
+    with_noise = False
+    if opt_.gen_mode == 'generate':
+        mg = MeshGen(opt_, device, template)
+        mg.generate_all(opt_.num_gen_samples)
+    elif opt_.gen_mode == 'animate':
+        m2m = Mesh2Mesh(opt_, device)
+        from process_data.mesh_utils import to_unit_edge
+        in_mesh = MeshInference(opt_.target, to_unit_edge(template), opt_, 0).to(device)
+        m2m.animate(in_mesh, opt_.gen_levels[0], opt_.gen_levels[1], 0, (12, 17), zero_places=(0, 0, 1, 1, 1))

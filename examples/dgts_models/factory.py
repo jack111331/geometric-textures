@@ -1,6 +1,6 @@
 from custom_types import *
 import torch.nn as nn
-from models.single_mesh_models import SingleMeshGenerator, SingleMeshDiscriminator
+from dgts_models.single_mesh_models import SingleMeshGenerator, SingleMeshDiscriminator
 from process_data.files_utils import init_folders
 import shutil
 import pickle

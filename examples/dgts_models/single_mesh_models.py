@@ -1,8 +1,8 @@
 from custom_types import *
 import torch.nn as nn
-from models.single_mesh_conv import MultiMeshConv
+from dgts_models.single_mesh_conv import MultiMeshConv
 import options
-from models.mesh_handler import MeshHandler, MeshInference
+from dgts_models.mesh_handler import MeshHandler, MeshInference
 import abc
 
 
