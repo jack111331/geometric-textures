@@ -6,7 +6,7 @@ from losses import multiview_iou_loss
 from utils import AverageMeter, img_cvt
 import soft_renderer as sr
 import soft_renderer.functional as srf
-import examples.datasets as datasets
+import datasets
 import models
 import imageio
 import time
@@ -40,7 +40,7 @@ RESUME_PATH = ''
 
 # arguments
 parser = argparse.ArgumentParser()
-parser.add_argument('-eid', '--experiment-id', type=str)
+parser.add_argument('-eid', '--experiment-id', type=str, default="recon")
 parser.add_argument('-md', '--model-directory', type=str, default=MODEL_DIRECTORY)
 parser.add_argument('-r', '--resume-path', type=str, default=RESUME_PATH)
 parser.add_argument('-dd', '--dataset-directory', type=str, default=DATASET_DIRECTORY)
@@ -179,5 +179,8 @@ def adjust_sigma(sigma, i):
         sigma *= decay
     return sigma
 
+if __name__ == '__main__':
+    # SoftRas train
+    train()
 
-train()
+    # Geometric texture synthesis

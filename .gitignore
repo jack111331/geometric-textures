@@ -7,3 +7,11 @@
 checkpoints/
 .ipynb_checkpoints/
 dataset/
+*.o
+*.npz
+*.tar
+*.gif
+*.so
+build/
+soft_renderer.egg*
+dist/

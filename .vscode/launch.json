@@ -9,7 +9,7 @@
             "name": "Python: Current File",
             "type": "python",
             "request": "launch",
-            "program": "${workspaceFolder}/dgts_base.py",
+            "program": "${workspaceFolder}/examples/train.py",
             "console": "integratedTerminal",
             "justMyCode": true,
             "args": ["--tag", "demo", "--mesh-name", "sphere_rail", "--template-name", "1_5", "--gen-mode", "animate", "--target", "1_5"]
