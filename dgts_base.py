@@ -119,10 +119,12 @@ class Mesh2Mesh(DGTS):
 
 class MeshGen(DGTS):
 
-    def __init__(self, opt: options.Options, device: D):
+    def __init__(self, opt: options.Options, device: D, template=None):
         super(MeshGen, self).__init__(opt, device)
         self.generator.eval()
-        template_name, template = load_template_mesh(opt, opt.start_level)
+        template_name = 'tmp_mesh_template'
+        if template == None:
+            template_name, template = load_template_mesh(opt, opt.start_level)
         self.template = MeshInference(template_name, template, self.opt, self.opt.start_level).to(self.device)
         self.reconstruction_z = factory.NoiseMem(opt).load().to(device)
 

@@ -38,7 +38,7 @@ START_ITERATION = 0
 
 RESUME_PATH = ''
 
-# arguments
+# SoftRas arguments
 parser = argparse.ArgumentParser()
 parser.add_argument('-eid', '--experiment-id', type=str)
 parser.add_argument('-md', '--model-directory', type=str, default=MODEL_DIRECTORY)
@@ -60,6 +60,21 @@ parser.add_argument('-pf', '--print-freq', type=int, default=PRINT_FREQ)
 parser.add_argument('-df', '--demo-freq', type=int, default=DEMO_FREQ)
 parser.add_argument('-sf', '--save-freq', type=int, default=SAVE_FREQ)
 parser.add_argument('-s', '--seed', type=int, default=RANDOM_SEED)
+
+# dgts arguments
+parser.add_argument('--tag', type=str, help='')
+parser.add_argument('--mesh-name', type=str, help='')
+parser.add_argument('--template-name', type=str, default='sphere', help='')
+parser.add_argument('--num-levels', type=int, help='')
+parser.add_argument('--start-level', type=int, default=0, help='')
+# inference options
+parser.add_argument('--gen-mode', type=str, choices=['generate', 'animate'])
+parser.add_argument('--num-gen-samples', type=int, default=8)
+parser.add_argument('--target', type=str, default='fertility_al', help='')
+parser.add_argument('--gen-levels', nargs='+', type=int, default=[1, 4], help='')
+# gt optimization options
+parser.add_argument('--template-start', type=int, default=0, help='')
+
 args = parser.parse_args()
 
 torch.backends.cudnn.deterministic = True
@@ -156,6 +171,7 @@ def train():
                                          batch_time=batch_time, loss=losses,
                                          lr=lr, sv=model.rasterizer.sigma_val))
 
+    return model
 
 def adjust_learning_rate(optimizers, learning_rate, i, method):
     if method == 'step':
@@ -181,6 +197,26 @@ def adjust_sigma(sigma, i):
 
 if __name__ == '__main__':
     # SoftRas train
-    train()
+    softRasModel = train()
+    # FIXME images require
+    vertices, faces = softRasModel(images=None, task='test')
+    template = (vertices, faces)
 
     # Geometric texture synthesis
+    # Inference
+    from .dgts_base import *
+    opt_ = options.Options()
+    opt_.parse_cmdline(parser)
+    # FIXME wire object output(vertices, faces) to MeshGen and Mesh2Mesh, MeshInference
+    # MeshGen done
+    # MeshInference done
+    device = CPU
+    with_noise = False
+    if opt_.gen_mode == 'generate':
+        mg = MeshGen(opt_, device, template)
+        mg.generate_all(opt_.num_gen_samples)
+    elif opt_.gen_mode == 'animate':
+        m2m = Mesh2Mesh(opt_, device)
+        from process_data.mesh_utils import to_unit_edge
+        in_mesh = MeshInference(opt_.target, to_unit_edge(template), opt_, 0).to(device)
+        m2m.animate(in_mesh, opt_.gen_levels[0], opt_.gen_levels[1], 0, (12, 17), zero_places=(0, 0, 1, 1, 1))

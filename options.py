@@ -70,23 +70,9 @@ class Options:
             return False
         return reduce(lambda x, y: x or y, map(lambda x: 'jupyter' in x, sys.argv[1:]))
 
-    def parse_cmdline(self):
+    def parse_cmdline(self, parser):
         if self.in_notebook():
             return
-        parser = argparse.ArgumentParser(description='DGTS options')
-        parser.add_argument('--tag', type=str, help='')
-        parser.add_argument('--mesh-name', type=str, help='')
-        parser.add_argument('--template-name', type=str, default='sphere', help='')
-        parser.add_argument('--num-levels', type=int, help='')
-        parser.add_argument('--start-level', type=int, default=0, help='')
-        # inference options
-        parser.add_argument('--gen-mode', type=str, choices=['generate', 'animate'])
-        parser.add_argument('--num-gen-samples', type=int, default=8)
-        parser.add_argument('--target', type=str, default='fertility_al', help='')
-        parser.add_argument('--gen-levels', nargs='+', type=int, default=[1, 4], help='')
-        # gt optimization options
-        parser.add_argument('--template-start', type=int, default=0, help='')
-
         parser = parser.parse_args().__dict__
         args = {key: item for key, item in parser.items() if item is not None}
         self.fill_args(**args)
