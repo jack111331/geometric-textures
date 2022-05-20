@@ -197,9 +197,16 @@ def adjust_sigma(sigma, i):
 
 if __name__ == '__main__':
     # SoftRas train
+    # FIXME for debug faster, reuse saved model
     softRasModel = train()
-    # FIXME images require
-    vertices, faces = softRasModel(images=None, task='test')
+    # each test image npz is "arr_0": [images[24 angles, 4 channels, 64 height, 64 width]] * n_kind_of_category
+    dataset_val = datasets.ShapeNet(args.dataset_directory, args.class_ids.split(','), 'val')
+    idx_img = 0
+    # 02691156: Airplane, see datasets.py
+    class_id = '02691156'
+    imgs, vox = dataset_val.get_all_batches_for_evaluation(args.batch_size, class_id)[idx_img]
+    # FIXME maybe only use one image as one batch
+    vertices, faces = softRasModel(images=imgs, task='test')
     template = (vertices, faces)
 
     # Geometric texture synthesis
@@ -207,7 +214,7 @@ if __name__ == '__main__':
     from .dgts_base import *
     opt_ = options.Options()
     opt_.parse_cmdline(parser)
-    # FIXME wire object output(vertices, faces) to MeshGen and Mesh2Mesh, MeshInference
+    # Wire object output(vertices, faces) to MeshGen and Mesh2Mesh, MeshInference
     # MeshGen done
     # MeshInference done
     device = CPU
