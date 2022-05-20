@@ -42,6 +42,7 @@ class SingleMeshConv(nn.Module):
             # x [1, 8 features, 3 neighbor faces, faces]
             x = torch.cat((x_a, x_b), 1)
         else:
+            # create initial feature's embedding
             x = x.view(1, 3, -1, n_faces).permute(0, 2, 1, 3)
         # x [1, 8 features, 3 neighbor faces * faces]
         x = x.reshape(1, -1, n_faces * 3)
