@@ -146,6 +146,8 @@ class MeshHandler:
 
         opposite_vs, vs = extract_local_cords()
         edge_lengths = get_edge_lengths()
+        # torch.Size([24684(faces), 3]) torch.Size([24684, 3, 3]) torch.Size([24684, 3, 1]) torch.Size([12344, 3])
+        print(self.faces.shape, opposite_vs.shape, edge_lengths.shape, vs.shape)
         fe = torch.cat((opposite_vs, edge_lengths), 2).view(len(self), -1).t()
         if not noise_before:
             fe = fe + z

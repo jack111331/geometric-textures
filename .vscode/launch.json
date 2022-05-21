@@ -12,7 +12,7 @@
             "program": "${workspaceFolder}/dgts_base.py",
             "console": "integratedTerminal",
             "justMyCode": true,
-            "args": ["--tag", "demo", "--mesh-name", "sphere_rail", "--template-name", "1_5", "--gen-mode", "animate", "--target", "1_5"]
+            "args": ["--tag", "demo", "--mesh-name", "sphere_rail", "--template-name", "desk", "--gen-mode", "animate", "--target", "desk"]
         }
     ]
 }
