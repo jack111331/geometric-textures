@@ -204,7 +204,7 @@ if __name__ == '__main__':
     dataset_val = datasets.ShapeNet(args.dataset_directory, args.class_ids.split(','), 'val')
     idx_img = 0
     # 02691156: Airplane, see datasets.py
-    class_id = '02691156'
+    class_id = '04256520'
     imgs, vox = next(iter(dataset_val.get_all_batches_for_evaluation(args.batch_size, class_id)))
     imgs = torch.autograd.Variable(imgs).cuda()
     vertices, faces = softRasModel(images=imgs, task='test')
@@ -220,9 +220,63 @@ if __name__ == '__main__':
     adaptivity=0
     vs, triangles, quads = floatGrid.convertToPolygons(isovalue, adaptivity)
     tris = []
-    for quad in quads:
-        tris.append([quad[0], quad[1], quad[2]])
-        tris.append([quad[0], quad[2], quad[3]])
+    # edge: quad index list
+    share_edge_quad_dict = {}
+    for idx, quad in enumerate(quads):
+        for i in range(4):
+            qu = tuple(sorted([quad[i], quad[(i+1)%4]]))
+            if qu in share_edge_quad_dict:
+                share_edge_quad_dict[qu].append(idx)
+            else:
+                share_edge_quad_dict[qu] = [idx]
+
+    # quad index: quad index list
+    adjacent_quad_dict = {}
+    for edge in share_edge_quad_dict:
+        quad_list = share_edge_quad_dict[edge]
+        for i in range(2):
+            if quad_list[i] in adjacent_quad_dict:
+                adjacent_quad_dict[quad_list[i]].append(quad_list[(i+1)%2])
+            else:
+                adjacent_quad_dict[quad_list[i]] = [quad_list[(i+1)%2]]
+
+    ind_queue = [0]
+    # quad index: normal direction
+    normal_dir_dict = {}
+    while True:
+        if len(ind_queue) > 0:
+            # FIXME Ensure the same face direction
+
+            ind = ind_queue.pop(0)
+            if ind not in normal_dir_dict:
+                reference_normal = None
+                for adjacent_quad_ind in adjacent_quad_dict[ind]:
+                    if isinstance(normal_dir_dict.get(adjacent_quad_ind), np.ndarray):
+                        reference_normal = normal_dir_dict[adjacent_quad_ind]
+                        break
+                quad = quads[ind]
+                v_0, v_1, v_2 = vs[quad[3]], vs[quad[1]], vs[quad[2]]
+                if not isinstance(reference_normal, np.ndarray):
+                    normal_dir_dict[ind] = np.cross((v_1 - v_0), (v_1 - v_2))
+                    tris.append([quad[3], quad[1], quad[2]])
+                    tris.append([quad[3], quad[0], quad[1]])
+                else:
+                    calculated_normal = np.cross((v_1 - v_0), (v_1 - v_2))
+                    if np.dot(calculated_normal, reference_normal) < 0:
+                        calculated_normal = -calculated_normal
+                        tris.append([quad[3], quad[2], quad[1]])
+                        tris.append([quad[3], quad[1], quad[0]])
+                    else:
+                        tris.append([quad[3], quad[1], quad[2]])
+                        tris.append([quad[3], quad[0], quad[1]])
+                    normal_dir_dict[ind] = calculated_normal
+                    
+                # do operation
+                for adjacent_quad_ind in adjacent_quad_dict[ind]:
+                    if adjacent_quad_ind not in normal_dir_dict:
+                        ind_queue.append(adjacent_quad_ind)
+        else:
+            break
     tris = np.array(tris, dtype=np.int32)
     template = (torch.Tensor(vs).to('cuda'), torch.Tensor(tris).to('cuda').long())
     # Geometric texture synthesis
