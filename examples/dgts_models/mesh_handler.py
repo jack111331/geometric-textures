@@ -231,6 +231,7 @@ class MeshInference(MeshHandler):
 
     def load(self, level: int) -> bool:
         cache = []
+        # FIXME remove cache?
         if files_utils.load_pickle(self.cache_path(level), cache):
             cache = cache[0]
             MeshHandler._mesh_dss[level] = cache['mesh_dss'].to(self.device)

@@ -9,10 +9,14 @@
             "name": "Python: Current File",
             "type": "python",
             "request": "launch",
-            "program": "${workspaceFolder}/examples/train.py",
+            "program": "${workspaceFolder}/examples/merge_train.py",
             "console": "integratedTerminal",
+            "preLaunchTask": "sourceenvironment",
             "justMyCode": true,
-            "args": ["--tag", "demo", "--mesh-name", "sphere_rail", "--template-name", "1_5", "--gen-mode", "animate", "--target", "1_5"]
+            "args": [],
+            "env": {"CUDA_VISIBLE_DEVICES": "1",
+                "LD_LIBRARY_PATH": "/tmp2/r10922033/anaconda3/envs/3dcv-project-3-7/lib/python3.7/site-packages:/tmp2/r10922033/anaconda3/envs/3dcv-project-3-7/lib/:$LD_LIBRARY_PATH"
+            }
         }
     ]
 }

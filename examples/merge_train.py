@@ -11,6 +11,7 @@ import models
 import imageio
 import time
 import os
+import pyopenvdb
 
 CLASS_IDS_ALL = (
     '02691156,02828884,02933112,02958343,03001627,03211117,03636649,' +
@@ -208,8 +209,22 @@ if __name__ == '__main__':
     imgs = torch.autograd.Variable(imgs).cuda()
     vertices, faces = softRasModel(images=imgs, task='test')
     # Only use one image's output as one batch
-    template = (vertices[0], faces[0].long())
-
+    from process_data.mesh_utils import to_unit_edge
+    vertices, faces = to_unit_edge((vertices[0], faces[0]))
+    selected_vertices = vertices.cpu().detach().numpy()
+    selected_faces = faces.cpu().long().detach().numpy()
+    voxel_size = 0.25
+    transform = pyopenvdb.createLinearTransform(voxel_size)
+    floatGrid = pyopenvdb.FloatGrid.createLevelSetFromPolygons(points=selected_vertices, triangles=selected_faces, transform=transform, halfWidth=1)
+    isovalue=0
+    adaptivity=0
+    vs, triangles, quads = floatGrid.convertToPolygons(isovalue, adaptivity)
+    tris = []
+    for quad in quads:
+        tris.append([quad[0], quad[1], quad[2]])
+        tris.append([quad[0], quad[2], quad[3]])
+    tris = np.array(tris, dtype=np.int32)
+    template = (torch.Tensor(vs).to('cuda'), torch.Tensor(tris).to('cuda').long())
     # Geometric texture synthesis
     # Inference
     from dgts_base import *
@@ -226,6 +241,5 @@ if __name__ == '__main__':
         mg.generate_all(opt_.num_gen_samples)
     elif opt_.gen_mode == 'animate':
         m2m = Mesh2Mesh(opt_, device)
-        from process_data.mesh_utils import to_unit_edge
         in_mesh = MeshInference(opt_.target, to_unit_edge(template), opt_, 0).to(device)
         m2m.animate(in_mesh, opt_.gen_levels[0], opt_.gen_levels[1], 0, (12, 17), zero_places=(0, 0, 1, 1, 1))

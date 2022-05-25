@@ -1,0 +1,1 @@
+export LD_LIBRARY_PATH=$CONDA_PREFIX/lib/python3.7/site-packages:$CONDA_PREFIX/lib/:$LD_LIBRARY_PATH
