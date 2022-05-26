@@ -14,7 +14,6 @@ dependencies:
   - imageio
   - torchvision
   - scikit-image
-  - trimesh
   - requests
   - pip:
     - tqdm==4.40.2

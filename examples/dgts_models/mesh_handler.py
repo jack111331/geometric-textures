@@ -132,7 +132,7 @@ class MeshHandler:
                     origins, local_axes = self.get_local_axes((vs_, self.faces))
             else:
                 origins, local_axes = self.extract_local_axes()
-
+                
             global_cords = vs_[self.ds.face2points] - origins
             local_cords = torch.einsum('fsd,fsad->fsa', [global_cords, local_axes])
             return local_cords, vs_
@@ -230,13 +230,13 @@ class MeshInference(MeshHandler):
             self.save(level)
 
     def load(self, level: int) -> bool:
-        cache = []
-        # FIXME remove cache?
-        if files_utils.load_pickle(self.cache_path(level), cache):
-            cache = cache[0]
-            MeshHandler._mesh_dss[level] = cache['mesh_dss'].to(self.device)
-            MeshHandler._upsamplers[level] = cache['upsamplers'].to(self.device)
-            return True
+        # cache = []
+        # # FIXME remove cache?
+        # if files_utils.load_pickle(self.cache_path(level), cache):
+        #     cache = cache[0]
+        #     MeshHandler._mesh_dss[level] = cache['mesh_dss'].to(self.device)
+        #     MeshHandler._upsamplers[level] = cache['upsamplers'].to(self.device)
+        #     return True
         return False
 
     def save(self, level: int):
