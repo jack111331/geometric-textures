@@ -1,4 +1,4 @@
-name: 3dcv-project-3-7
+name: 3dcv-project
 channels:
   - pytorch
   - defaults
@@ -15,6 +15,7 @@ dependencies:
   - torchvision
   - scikit-image
   - trimesh
+  - requests
   - pip:
     - tqdm==4.40.2
     - pyopenvdb
