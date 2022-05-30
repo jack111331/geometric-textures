@@ -52,18 +52,19 @@ def test(model, image, mesh_path):
     srf.save_obj(mesh_path, vertices, faces)
     return vertices, faces
 
-if __name__ == '__main__':
+def run(imagePath, status_bar, progress_bar,textureName = 'sphere_rail',category=''):
+   
     model = models.Model('data/sphere/sphere_642.obj', args=args)
     model = model.cuda()
 
     state_dicts = torch.load(args.model_directory)
     model.load_state_dict(state_dicts['model'], strict=True)
     model.eval()
-    
-    image = imageio.imread("data/results/models/recon/pic/0000000_input.png", pilmode='RGBA')
+    status_bar.showMessage('Reconstructing 3d mesh from single image.')
+    image = imageio.imread(imagePath, pilmode='RGBA')
     image = image.astype('float32') / 255.
     vertices, faces = test(model, image, f"{directory_output}/tmp.obj")
-    
+    status_bar.showMessage('Generating texture on reconstructed 3d mesh.')
     vertices, faces = to_unit_edge((vertices, faces))
     selected_vertices = vertices.cpu().detach().numpy()
     selected_faces = faces.cpu().long().detach().numpy()
@@ -137,9 +138,11 @@ if __name__ == '__main__':
     opt_ = options.Options()
     opt_.parse_cmdline(parser)
     opt_.gen_mode = 'animate'
+    opt_.mesh_name = textureName
     # Wire object output(vertices, faces) to MeshGen and Mesh2Mesh, MeshInference
     # MeshGen done
     # MeshInference done
+   
     device = CPU
     with_noise = False
     if opt_.gen_mode == 'generate':
@@ -147,5 +150,9 @@ if __name__ == '__main__':
         mg.generate_all(opt_.num_gen_samples)
     elif opt_.gen_mode == 'animate':
         m2m = Mesh2Mesh(opt_, device)
-        in_mesh = MeshInference(opt_.target, to_unit_edge(template), opt_, 0).to(device)
-        m2m.animate(in_mesh, opt_.gen_levels[0], opt_.gen_levels[1], 0, (12, 17), zero_places=(0, 0, 1, 1, 1))
+        
+        in_mesh = MeshInference(opt_.target, to_unit_edge(template), opt_, 0, progress_bar=progress_bar).to(device)
+        
+        output = m2m.animate(in_mesh, opt_.gen_levels[0], opt_.gen_levels[1], 0, (12, 17), zero_places=(0, 0, 1, 1, 1))
+        status_bar.showMessage('finish~')
+        return output

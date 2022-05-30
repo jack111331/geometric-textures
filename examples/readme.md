@@ -1,0 +1,1 @@
+https://clay-atlas.com/blog/2020/01/04/linux-chinese-tutorial-qt-designer-python-gui/

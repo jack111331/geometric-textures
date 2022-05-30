@@ -66,6 +66,8 @@ class Mesh2Mesh(DGTS):
             for j in range(num_frames):
                 mesh.vs = base_vs + cur_delta * (j + 1) / num_frames
                 mesh.export(f'{export_name}/{(num_frames * i + j + 1):02d}')
+                print(mesh)
+                mesh.progress_bar.setValue(int( 100 * (num_frames * i + j + 1) / (num_frames * (end - start + 1) )))
                 print(f'done: {num_frames * i + j + 1}/{num_frames * (end - start + 1)}')
             if i < end - start:
                 mesh.upsample()
@@ -76,7 +78,8 @@ class Mesh2Mesh(DGTS):
         start, end = self.trim(start, end)
         if len(zero_places) == 1:
             zero_places = zero_places * (end - start + 1)
-        z_a = self.growing(mesh.copy(), start, end, num_frames[0], zero_places)
+        copied_mesh = mesh.copy()
+        z_a = self.growing(copied_mesh, start, end, num_frames[0], zero_places)
         z_b = self.get_z_sequence(mesh, end - start).to(self.device)
         for i in range(min(len(z_a), len(zero_places))):
             if zero_places[i]:
@@ -97,6 +100,7 @@ class Mesh2Mesh(DGTS):
                 z_b = z_start
             else:
                 z_b = self.get_z_sequence(mesh, end - start).to(self.device)
+        return copied_mesh
 
     def __call__(self, mesh: Union[str, MeshHandler, T_Mesh], start: int, end: int, zero_places: NoiseT = 0) -> MeshHandler:
         MeshHandler.reset()

@@ -215,8 +215,10 @@ class MeshHandler:
 class MeshInference(MeshHandler):
 
     def __init__(self, mesh_name: str, path_or_mesh: Union[str, T_Mesh], opt: Options, level: int,
-                 local_axes: Union[N, TS] = None):
+                 local_axes: Union[N, TS] = None, progress_bar = None):
         self.mesh_name = mesh_name
+        self.progress_bar = progress_bar
+     
         super(MeshInference, self).__init__(path_or_mesh, opt, level, local_axes)
 
     def grow_add(self, deltas: T):
@@ -230,13 +232,13 @@ class MeshInference(MeshHandler):
             self.save(level)
 
     def load(self, level: int) -> bool:
-        # cache = []
-        # # FIXME remove cache?
-        # if files_utils.load_pickle(self.cache_path(level), cache):
-        #     cache = cache[0]
-        #     MeshHandler._mesh_dss[level] = cache['mesh_dss'].to(self.device)
-        #     MeshHandler._upsamplers[level] = cache['upsamplers'].to(self.device)
-        #     return True
+        cache = []
+        # FIXME remove cache?
+        if files_utils.load_pickle(self.cache_path(level), cache):
+            cache = cache[0]
+            MeshHandler._mesh_dss[level] = cache['mesh_dss'].to(self.device)
+            MeshHandler._upsamplers[level] = cache['upsamplers'].to(self.device)
+            return True
         return False
 
     def save(self, level: int):
@@ -254,7 +256,7 @@ class MeshInference(MeshHandler):
             local_axes = self.local_axes[0].clone(), self.local_axes[1].clone()
         else:
             local_axes = None
-        return MeshInference(self.mesh_name, mesh, self.opt, self.level, local_axes=local_axes)
+        return MeshInference(self.mesh_name, mesh, self.opt, self.level, local_axes=local_axes, progress_bar=self.progress_bar)
 
 def load_template_mesh(opt: Options, level) -> Tuple[str, T_Mesh]:
     mesh_path = f'{DATA_ROOT}/{opt.mesh_name}/{opt.mesh_name}_template.obj'
